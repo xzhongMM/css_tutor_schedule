@@ -22,9 +22,14 @@ function App() {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user ?? null); setAuthReady(true) })
     return () => listener.subscription.unsubscribe()
   }, [])
+  if (import.meta.env.PROD && !supabase) return <ConfigurationRequired />
   if (supabase && !authReady) return <div className="auth-loading">Opening your tutor workspace…</div>
   if (supabase && !user) return <AuthScreen />
   return <Workspace user={user} />
+}
+
+function ConfigurationRequired() {
+  return <div className="auth-page"><section className="auth-card"><div className="brand-mark"><BookOpen size={19} /></div><div className="eyebrow">DEPLOYMENT SETUP</div><h1>Authentication isn’t configured</h1><p>This production deployment is missing its Supabase connection settings, so the demo workspace is disabled.</p><div className="setup-vars"><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_ANON_KEY</code></div><p>Add both variables to this Vercel project’s Production environment, then redeploy.</p></section></div>
 }
 
 function AuthScreen() {
@@ -36,7 +41,9 @@ function AuthScreen() {
   async function submit(event: FormEvent) {
     event.preventDefault(); if (!supabase) return
     setBusy(true); setMessage('')
-    const result = mode === 'sign-in' ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password })
+    const result = mode === 'sign-in'
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
     setBusy(false)
     setMessage(result.error?.message ?? (mode === 'sign-up' ? 'Check your email to confirm your account, then sign in.' : ''))
   }
