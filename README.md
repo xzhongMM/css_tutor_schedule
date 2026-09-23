@@ -20,7 +20,8 @@ When both Supabase environment values are present, tutor sign-in/sign-up and row
 ## Features
 
 - Overview of monthly hours, session count, active students, and recent activity
-- Student profiles with monthly session history and edit/delete support
+- Add students with tutoring site and initial goals; browse profiles with monthly session history
+- Student profiles with session edit/delete support
 - Quick session logging with date, hours, and optional notes
 - Student achievement goal checklist based on the LVAEP form categories
 - End tutoring with reason, days, and times; reactivate a student from their profile

@@ -57,10 +57,11 @@ function Workspace({ user }: { user: User | null }) {
   const [month, setMonth] = useState(() => new Date())
   const [page, setPage] = useState<'dashboard' | 'students' | 'sessions'>('dashboard')
   const [studentId, setStudentId] = useState<string | null>(null)
-  const [modal, setModal] = useState<'session' | 'goals' | 'stopped' | 'export' | null>(null)
+  const [modal, setModal] = useState<'session' | 'goals' | 'stopped' | 'export' | 'student' | 'logout' | null>(null)
   const [editing, setEditing] = useState<Session | null>(null)
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState('')
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [exportMonth, setExportMonth] = useState(monthKey(month))
   const selectedStudent = students.find((student) => student.id === studentId) ?? null
   const activeStudents = students.filter((student) => student.status === 'active')
@@ -121,6 +122,10 @@ function Workspace({ user }: { user: User | null }) {
   }
   function removeSession(id: string) { setSessions((old) => old.filter((session) => session.id !== id)); setToast('Session deleted') }
   function setStudent(patch: Partial<Student>) { if (selectedStudent) setStudents((old) => old.map((student) => student.id === selectedStudent.id ? { ...student, ...patch } : student)) }
+  function addStudent(name: string, site: string, goals: string[], otherGoal: string) {
+    setStudents((old) => [...old, { id: crypto.randomUUID(), name, site, status: 'active', goals, otherGoal, stoppedReason: '', stoppedDays: '', stoppedTimes: '' }])
+    setModal(null); setToast(`${name} added to your students`)
+  }
   function openLog(session?: Session) { setEditing(session ?? null); setModal('session') }
   function exportReport() { const target = studentId ?? activeStudents[0]?.id; if (!target) { setToast('Add a student before preparing a report'); return } setStudentId(target); setExportMonth(monthKey(month)); setModal('export') }
 
@@ -133,18 +138,20 @@ function Workspace({ user }: { user: User | null }) {
         <button className={`nav-item ${page === 'students' || studentId ? 'active' : ''}`} onClick={() => { setPage('students'); setStudentId(null) }}><Users size={17} />My students <span className="nav-count">{activeStudents.length}</span></button>
         <button className={`nav-item ${page === 'sessions' ? 'active' : ''}`} onClick={() => { setPage('sessions'); setStudentId(null) }}><CalendarDays size={17} />Sessions</button>
       </nav>
-      <div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><CircleHelp size={16} /></div><div><b>Need a hand?</b><span>We're here to help</span></div><ArrowRight size={15} /></div><button className="profile-switch" onClick={() => { if (supabase) void supabase.auth.signOut() }}><div className="avatar avatar-user">{user?.email?.[0]?.toUpperCase() ?? 'M'}</div><span className="profile-copy"><b>{user?.email ?? 'Molly Zhong'}</b><small>{user ? 'Tutor · Sign out' : 'Tutor · Demo'}</small></span><MoreHorizontal size={18} className="profile-more" /></button></div>
+      <div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><CircleHelp size={16} /></div><div><b>Need a hand?</b><span>We're here to help</span></div><ArrowRight size={15} /></div><div className="account-area"><div className="profile-switch"><div className="avatar avatar-user">{user?.email?.[0]?.toUpperCase() ?? 'M'}</div><span className="profile-copy"><b>{user?.email ?? 'Molly Zhong'}</b><small>{user ? 'Tutor account' : 'Tutor · Demo'}</small></span><button type="button" className="icon-button account-menu-button" aria-label="Account options" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}><MoreHorizontal size={19} /></button></div>{accountMenuOpen && <div className="account-menu"><button onClick={() => { setAccountMenuOpen(false); setModal('logout') }}>Sign out</button></div>}</div></div>
     </aside>
     <main className="main-area">
       <header className="topbar"><div className="breadcrumb"><span>LVAEP</span><ChevronRight size={14} />{studentId && selectedStudent ? <><button onClick={() => { setStudentId(null); setPage('students') }}>My students</button><ChevronRight size={14} /><b>{selectedStudent.name}</b></> : <b>{page === 'dashboard' ? 'Overview' : page === 'sessions' ? 'Sessions' : 'My students'}</b>}</div><div className="top-actions"><span className={`sync-status ${supabase ? 'connected' : ''}`}><i />{supabase ? 'Synced' : 'Demo mode'}</span><button className="icon-button" title="Settings"><Settings2 size={18} /></button><div className="avatar avatar-user top-avatar">M</div></div></header>
       <div className="content">
-        {studentId && selectedStudent ? <StudentView student={selectedStudent} sessions={selectedSessions} month={month} setMonth={setMonth} openLog={openLog} setModal={setModal} setStudent={setStudent} exportReport={exportReport} onBack={() => { setStudentId(null); setPage('students') }} /> : page === 'dashboard' ? <Dashboard month={month} setMonth={setMonth} students={activeStudents} sessions={sessions} currentSessions={currentSessions} totalHours={totalHours} openStudent={(id) => id ? setStudentId(id) : setPage('students')} openLog={() => openLog()} exportReport={exportReport} /> : page === 'students' ? <StudentsView students={students} sessions={sessions} openStudent={(id) => setStudentId(id)} /> : <SessionsView sessions={visibleSessions} students={students} search={search} setSearch={setSearch} openLog={openLog} removeSession={removeSession} />}
+        {studentId && selectedStudent ? <StudentView student={selectedStudent} sessions={selectedSessions} month={month} setMonth={setMonth} openLog={openLog} setModal={setModal} setStudent={setStudent} exportReport={exportReport} onBack={() => { setStudentId(null); setPage('students') }} /> : page === 'dashboard' ? <Dashboard month={month} setMonth={setMonth} students={activeStudents} sessions={sessions} currentSessions={currentSessions} totalHours={totalHours} openStudent={(id) => id ? setStudentId(id) : setPage('students')} openLog={() => openLog()} exportReport={exportReport} /> : page === 'students' ? <StudentsView students={students} sessions={sessions} openStudent={(id) => setStudentId(id)} onAdd={() => setModal('student')} /> : <SessionsView sessions={visibleSessions} students={students} search={search} setSearch={setSearch} openLog={openLog} removeSession={removeSession} />}
       </div>
     </main>
     {modal === 'session' && <SessionModal students={activeStudents} initial={editing} onClose={() => { setModal(null); setEditing(null) }} onSave={saveSession} />}
     {modal === 'goals' && selectedStudent && <GoalsModal student={selectedStudent} onClose={() => setModal(null)} onSave={(goals, otherGoal) => { setStudent({ goals, otherGoal }); setModal(null); setToast('Goals updated') }} />}
     {modal === 'stopped' && selectedStudent && <StoppedModal student={selectedStudent} onClose={() => setModal(null)} onSave={(values) => { setStudent({ ...values, status: 'stopped' }); setModal(null); setToast('Student marked as stopped') }} />}
     {modal === 'export' && selectedStudent && <ExportModal student={selectedStudent} sessions={selectedSessions} tutorName={String(user?.user_metadata?.full_name ?? user?.email ?? 'Molly Zhong')} reportMonth={exportMonth} setReportMonth={setExportMonth} onClose={() => setModal(null)} />}
+    {modal === 'student' && <NewStudentModal onClose={() => setModal(null)} onSave={addStudent} />}
+    {modal === 'logout' && <ModalFrame title="Sign out?" subtitle="You’ll need to sign in again to access your tutor workspace." onClose={() => setModal(null)}><div className="logout-actions"><button className="button button-secondary" onClick={() => setModal(null)}>Cancel</button><button className="button button-danger" onClick={() => { setModal(null); if (supabase) void supabase.auth.signOut() }}>Sign out</button></div></ModalFrame>}
     {toast && <div className="toast"><span className="toast-check"><Check size={14} /></span>{toast}</div>}
   </div>
 }
@@ -177,8 +184,8 @@ function StudentView({ student, sessions, month, setMonth, openLog, setModal, se
   </>
 }
 
-function StudentsView({ students, sessions, openStudent }: { students: Student[]; sessions: Session[]; openStudent: (id: string) => void }) {
-  return <><div className="page-heading"><div><div className="eyebrow">YOUR LEARNERS</div><h1>My students</h1><p>Keep up with the people you support.</p></div></div><div className="student-list-panel panel">{students.map((student, index) => { const count = sessions.filter((session) => session.studentId === student.id).length; const hours = sessions.filter((session) => session.studentId === student.id).reduce((sum, session) => sum + session.hours, 0); return <button className="student-list-row" key={student.id} onClick={() => openStudent(student.id)}><div className={`student-avatar avatar-tone-${index % 3}`}>{initials(student.name)}</div><div className="student-list-name"><b>{student.name}</b><span>{student.site}</span></div><span className={`status-pill ${student.status}`}>{student.status}</span><div className="student-list-stat"><b>{count}</b><span>sessions</span></div><div className="student-list-stat"><b>{hours.toFixed(1)}</b><span>hours total</span></div><ChevronRight size={17} className="muted-icon" /></button> })}</div></>
+function StudentsView({ students, sessions, openStudent, onAdd }: { students: Student[]; sessions: Session[]; openStudent: (id: string) => void; onAdd: () => void }) {
+  return <><div className="page-heading"><div><div className="eyebrow">YOUR LEARNERS</div><h1>My students</h1><p>Keep up with the people you support.</p></div><button className="button button-primary" onClick={onAdd}><Plus size={17} />Add student</button></div><div className="student-list-panel panel">{students.map((student, index) => { const count = sessions.filter((session) => session.studentId === student.id).length; const hours = sessions.filter((session) => session.studentId === student.id).reduce((sum, session) => sum + session.hours, 0); return <button className="student-list-row" key={student.id} onClick={() => openStudent(student.id)}><div className={`student-avatar avatar-tone-${index % 3}`}>{initials(student.name)}</div><div className="student-list-name"><b>{student.name}</b><span>{student.site}</span></div><span className={`status-pill ${student.status}`}>{student.status}</span><div className="student-list-stat"><b>{count}</b><span>sessions</span></div><div className="student-list-stat"><b>{hours.toFixed(1)}</b><span>hours total</span></div><ChevronRight size={17} className="muted-icon" /></button> })}{!students.length && <div className="empty-state"><div className="empty-icon"><Users size={22} /></div><b>No students yet</b><span>Add a student to start logging sessions and building monthly forms.</span></div>}</div></>
 }
 function SessionsView({ sessions, students, search, setSearch, openLog, removeSession }: { sessions: Session[]; students: Student[]; search: string; setSearch: (s: string) => void; openLog: (session?: Session) => void; removeSession: (id: string) => void }) {
   const [menu, setMenu] = useState<string | null>(null)
@@ -186,6 +193,16 @@ function SessionsView({ sessions, students, search, setSearch, openLog, removeSe
 }
 
 function ModalFrame({ title, subtitle, onClose, children, wide = false }: { title: string; subtitle: string; onClose: () => void; children: ReactNode; wide?: boolean }) { return <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className={`modal-card ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true"><div className="modal-header"><div><h2>{title}</h2><p>{subtitle}</p></div><button className="icon-button" aria-label="Close" onClick={onClose}><X size={19} /></button></div>{children}</section></div> }
+function NewStudentModal({ onClose, onSave }: { onClose: () => void; onSave: (name: string, site: string, goals: string[], otherGoal: string) => void }) {
+  const [name, setName] = useState('')
+  const [site, setSite] = useState('')
+  const [goals, setGoals] = useState<string[]>([])
+  const [otherGoal, setOtherGoal] = useState('')
+  const [error, setError] = useState('')
+  function toggle(goal: string) { setGoals((old) => old.includes(goal) ? old.filter((item) => item !== goal) : [...old, goal]) }
+  function submit(event: FormEvent) { event.preventDefault(); if (!name.trim() || !site.trim()) { setError('Enter the student’s name and tutoring site.'); return } onSave(name.trim(), site.trim(), goals, otherGoal.trim()) }
+  return <ModalFrame title="Add a student" subtitle="Save the details used for session tracking and monthly forms." onClose={onClose} wide><form className="new-student-form" onSubmit={submit}><div className="student-fields"><label>Student name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" required /></label><label>Tutoring site<input value={site} onChange={(e) => setSite(e.target.value)} placeholder="Learning center or location" required /></label></div><div className="new-student-goals"><div className="student-goals-heading"><b>Student goals</b><span>Optional · you can update these later</span></div><div className="goals-grid">{goalGroups.map((group) => <div className="goal-group" key={group.category}><h3>{group.category}</h3>{group.goals.map((goal) => <label className="goal-check" key={goal}><input type="checkbox" checked={goals.includes(goal)} onChange={() => toggle(goal)} /><span className="custom-check"><Check size={12} /></span><span>{goal}</span></label>)}</div>)}</div><label className="other-goal">Other goal <span className="optional">OPTIONAL</span><input value={otherGoal} onChange={(e) => setOtherGoal(e.target.value)} placeholder="Add a goal not listed above" /></label></div>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={onClose}>Cancel</button><button className="button button-primary"><Plus size={16} />Add student</button></div></form></ModalFrame>
+}
 function SessionModal({ students, initial, onClose, onSave }: { students: Student[]; initial: Session | null; onClose: () => void; onSave: (data: Omit<Session, 'id'>, id?: string) => void }) {
   const [studentId, setStudentId] = useState(initial?.studentId ?? students[0]?.id ?? '')
   const [date, setDate] = useState(initial?.date ?? new Date().toISOString().slice(0, 10))
